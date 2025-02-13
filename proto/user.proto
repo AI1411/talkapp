@@ -3,7 +3,6 @@ syntax = "proto3";
 package user;
 
 import "google/protobuf/wrappers.proto";
-import "validate/validate.proto";
 
 service UserService {
   // ユーザ作成、一覧、詳細、更新、削除の RPC を定義
@@ -15,8 +14,8 @@ service UserService {
 }
 
 message CreateUserRequest {
-  string username = 1 [(validate.rules).string.max_len = 20];
-  string email = 2 [(validate.rules).string.email = true];
+  string username = 1;
+  string email = 2;
   google.protobuf.StringValue gender = 3;
   google.protobuf.StringValue address = 4;
   google.protobuf.StringValue self_introduction = 5;
