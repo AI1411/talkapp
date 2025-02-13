@@ -149,11 +149,30 @@ mod tests {
             .expect("Failed to create pool")
     }
 
+    // テストユーザーを作成するヘルパー関数
+    async fn create_test_user(pool: &PgPool) -> User {
+        create_user(
+            pool,
+            "Test User".to_string(),
+            Some("Test Description".to_string()),
+            Some(25),
+            Some("Male".to_string()),
+        )
+            .await
+            .expect("Failed to create test user")
+    }
+
+    // クリーンアップ用のヘルパー関数
+    async fn cleanup_user(pool: &PgPool, user_id: i32) {
+        hard_delete_user(pool, user_id)
+            .await
+            .expect("Failed to cleanup test user");
+    }
+
     #[tokio::test]
-    async fn test_crud_operations() {
+    async fn test_create_user() {
         let pool = setup_test_db().await;
 
-        // 1. Create user
         let new_user = create_user(
             &pool,
             "Test User".to_string(),
@@ -161,98 +180,131 @@ mod tests {
             Some(25),
             Some("Male".to_string()),
         )
-        .await
-        .expect("Failed to create user");
+            .await
+            .expect("Failed to create user");
 
         assert_eq!(new_user.name, "Test User");
+        assert_eq!(new_user.description, Some("Test Description".to_string()));
         assert_eq!(new_user.age, Some(25));
-        println!("Created user: {:?}", new_user);
+        assert_eq!(new_user.sex, Some("Male".to_string()));
+        assert!(new_user.deleted_at.is_none());
 
-        // 2. Get user
-        let retrieved_user = get_user_by_id(&pool, new_user.id)
-            .await
-            .expect("Failed to get user");
-
-        assert_eq!(retrieved_user.id, new_user.id);
-        assert_eq!(retrieved_user.name, new_user.name);
-        println!("Retrieved user: {:?}", retrieved_user);
-
-        // 3. Update user
-        let updated_user = update_user(
-            &pool,
-            new_user.id,
-            Some("Updated User".to_string()),
-            Some("Updated Description".to_string()),
-            Some(26),
-            None,
-        )
-        .await
-        .expect("Failed to update user");
-
-        assert_eq!(updated_user.name, "Updated User");
-        assert_eq!(updated_user.age, Some(26));
-        println!("Updated user: {:?}", updated_user);
-
-        // 4. List users
-        let users = list_users(&pool).await.expect("Failed to list users");
-
-        assert!(!users.is_empty());
-        println!("Listed {} users", users.len());
-
-        // 5. Delete user
-        let deleted_user = delete_user(&pool, new_user.id)
-            .await
-            .expect("Failed to delete user");
-
-        assert!(deleted_user.deleted_at.is_some());
-        println!("Deleted user: {:?}", deleted_user);
-
-        // Cleanup: Hard delete the test user
-        hard_delete_user(&pool, new_user.id)
-            .await
-            .expect("Failed to hard delete user");
+        cleanup_user(&pool, new_user.id).await;
     }
 
     #[tokio::test]
-    async fn test_bulk_insert() {
+    async fn test_get_user_by_id() {
         let pool = setup_test_db().await;
+        let created_user = create_test_user(&pool).await;
 
-        // バルクインサートのテストデータ
-        let test_users = vec![
-            ("Alice Johnson", "Engineer", 28, "Female"),
-            ("Bob Smith", "Designer", 32, "Male"),
-            ("Carol Williams", "Manager", 35, "Female"),
-            ("David Brown", "Developer", 25, "Male"),
-            ("Eve Davis", "Architect", 30, "Female"),
-        ];
-
-        // テストユーザーを作成
-        for (name, desc, age, sex) in test_users {
-            let user = create_user(
-                &pool,
-                name.to_string(),
-                Some(desc.to_string()),
-                Some(age),
-                Some(sex.to_string()),
-            )
+        let retrieved_user = get_user_by_id(&pool, created_user.id)
             .await
-            .expect("Failed to create test user");
+            .expect("Failed to get user");
 
-            println!("Created test user: {:?}", user);
-        }
+        assert_eq!(retrieved_user.id, created_user.id);
+        assert_eq!(retrieved_user.name, created_user.name);
+        assert_eq!(retrieved_user.description, created_user.description);
+        assert_eq!(retrieved_user.age, created_user.age);
+        assert_eq!(retrieved_user.sex, created_user.sex);
 
-        // 全ユーザーを取得して確認
-        let all_users = list_users(&pool).await.expect("Failed to list users");
+        cleanup_user(&pool, created_user.id).await;
+    }
 
-        println!("Total users in database: {}", all_users.len());
-        for user in &all_users {
-            println!("User: {:?}", user);
-        }
+    #[tokio::test]
+    async fn test_list_users() {
+        let pool = setup_test_db().await;
+        let user1 = create_test_user(&pool).await;
+        let user2 = create_user(
+            &pool,
+            "Another User".to_string(),
+            Some("Another Description".to_string()),
+            Some(30),
+            Some("Female".to_string()),
+        )
+            .await
+            .expect("Failed to create second user");
 
-        for user in all_users {
-            hard_delete_user(&pool, user.id)
-                .await
-                .expect("Failed to cleanup test user");
-        }
+        let users = list_users(&pool).await.expect("Failed to list users");
+
+        assert!(users.len() >= 2); // データベースに他のデータが存在する可能性があるため
+        assert!(users.iter().any(|u| u.id == user1.id));
+        assert!(users.iter().any(|u| u.id == user2.id));
+
+        cleanup_user(&pool, user1.id).await;
+        cleanup_user(&pool, user2.id).await;
+    }
+
+    #[tokio::test]
+    async fn test_update_user() {
+        let pool = setup_test_db().await;
+        let created_user = create_test_user(&pool).await;
+
+        let updated_user = update_user(
+            &pool,
+            created_user.id,
+            Some("Updated Name".to_string()),
+            Some("Updated Description".to_string()),
+            Some(26),
+            Some("Female".to_string()),
+        )
+            .await
+            .expect("Failed to update user");
+
+        assert_eq!(updated_user.id, created_user.id);
+        assert_eq!(updated_user.name, "Updated Name");
+        assert_eq!(updated_user.description, Some("Updated Description".to_string()));
+        assert_eq!(updated_user.age, Some(26));
+        assert_eq!(updated_user.sex, Some("Female".to_string()));
+        assert!(updated_user.updated_at > created_user.updated_at);
+
+        cleanup_user(&pool, created_user.id).await;
+    }
+
+    #[tokio::test]
+    async fn test_delete_user() {
+        let pool = setup_test_db().await;
+        let created_user = create_test_user(&pool).await;
+
+        // 論理削除のテスト
+        let deleted_user = delete_user(&pool, created_user.id)
+            .await
+            .expect("Failed to delete user");
+
+        assert_eq!(deleted_user.id, created_user.id);
+        assert!(deleted_user.deleted_at.is_some());
+
+        // 物理削除のテスト
+        hard_delete_user(&pool, created_user.id)
+            .await
+            .expect("Failed to hard delete user");
+
+        // ユーザーが本当に削除されたか確認
+        let result = get_user_by_id(&pool, created_user.id).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_partial_update() {
+        let pool = setup_test_db().await;
+        let created_user = create_test_user(&pool).await;
+
+        // 一部のフィールドのみを更新
+        let updated_user = update_user(
+            &pool,
+            created_user.id,
+            Some("Updated Name".to_string()),
+            None,  // description は更新しない
+            None,  // age は更新しない
+            None,  // sex は更新しない
+        )
+            .await
+            .expect("Failed to partially update user");
+
+        assert_eq!(updated_user.name, "Updated Name");
+        assert_eq!(updated_user.description, created_user.description);
+        assert_eq!(updated_user.age, created_user.age);
+        assert_eq!(updated_user.sex, created_user.sex);
+
+        cleanup_user(&pool, created_user.id).await;
     }
 }
