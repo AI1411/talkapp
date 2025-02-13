@@ -1,5 +1,3 @@
-mod client;
-
 use tonic::{transport::Server, Request, Response, Status};
 
 mod user_proto {
