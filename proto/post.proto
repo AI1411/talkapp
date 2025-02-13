@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package post;
+
+import "google/protobuf/wrappers.proto";
+
+service PostService {
+  // 投稿作成
+  rpc CreatePost (CreatePostRequest) returns (CreatePostResponse);
+  // 投稿一覧取得
+  rpc ListPosts (ListPostsRequest) returns (ListPostsResponse);
+  // 投稿詳細取得
+  rpc GetPost (GetPostRequest) returns (GetPostResponse);
+  // 投稿削除
+  rpc DeletePost (DeletePostRequest) returns (DeletePostResponse);
+}
+
+message CreatePostRequest {
+  string body = 1;
+  uint64 user_id = 2;
+}
+
+message CreatePostResponse {
+  uint64 id = 1;
+  string body = 2;
+  uint64 user_id = 3;
+  string created_at = 4;
+}
+
+message ListPostsRequest {
+  int32 page = 1;
+  int32 per_page = 2;
+}
+
+message Post {
+  uint64 id = 1;
+  string body = 2;
+  uint64 user_id = 3;
+  string created_at = 4;
+}
+
+message ListPostsResponse {
+  repeated Post posts = 1;
+}
+
+message GetPostRequest {
+  uint64 id = 1;
+}
+
+message GetPostResponse {
+  Post post = 1;
+}
+
+message DeletePostRequest {
+  uint64 id = 1;
+}
+
+message DeletePostResponse {
+  bool success = 1;
+}

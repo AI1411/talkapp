@@ -1,3 +1,7 @@
+mod infra;
+mod repository;
+mod domain;
+
 use tonic::{transport::Server, Request, Response, Status};
 
 mod user_proto {
