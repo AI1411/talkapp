@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package user;
+
+import "google/protobuf/wrappers.proto";
+import "validate/validate.proto";
+
+service UserService {
+  // ユーザ作成、一覧、詳細、更新、削除の RPC を定義
+  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
+  rpc GetUser (GetUserRequest) returns (GetUserResponse);
+  rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+message CreateUserRequest {
+  string username = 1 [(validate.rules).string.max_len = 20];
+  string email = 2 [(validate.rules).string.email = true];
+  google.protobuf.StringValue gender = 3;
+  google.protobuf.StringValue address = 4;
+  google.protobuf.StringValue self_introduction = 5;
+}
+
+message CreateUserResponse {
+  uint64 id = 1;
+  string username = 2;
+  string email = 3;
+  google.protobuf.StringValue gender = 4;
+  google.protobuf.StringValue address = 5;
+  google.protobuf.StringValue self_introduction = 6;
+}
+
+// ユーザ一覧取得（検索）のリクエストに、検索条件を追加
+message ListUsersRequest {
+  int32 page = 1;
+  int32 per_page = 2;
+  // 検索条件として、以下のフィールドが指定された場合、その値でフィルタします
+  google.protobuf.StringValue gender = 3;    // 性別での検索
+  google.protobuf.StringValue address = 4;   // 住みでの検索
+  google.protobuf.StringValue username = 5;  // 名前での検索
+}
+
+message User {
+  uint64 id = 1;
+  string username = 2;
+  string email = 3;
+  google.protobuf.StringValue gender = 4;
+  google.protobuf.StringValue address = 5;
+  google.protobuf.StringValue self_introduction = 6;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message GetUserRequest {
+  uint64 id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message UpdateUserRequest {
+  uint64 id = 1;
+  google.protobuf.StringValue username = 2;
+  google.protobuf.StringValue email = 3;
+  google.protobuf.StringValue gender = 4;
+  google.protobuf.StringValue address = 5;
+  google.protobuf.StringValue self_introduction = 6;
+}
+
+message UpdateUserResponse {
+  User user = 1;
+}
+
+message DeleteUserRequest {
+  uint64 id = 1;
+}
+
+message DeleteUserResponse {
+  bool success = 1;
+}
