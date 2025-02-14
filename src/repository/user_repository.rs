@@ -1,33 +1,10 @@
 use crate::domain::entity::users::Model as User;
 use crate::domain::entity::users::{self, Entity as Users};
+use crate::domain::repository::user::UserRepository;
 use async_trait::async_trait;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::NotSet, Database, DatabaseConnection, EntityTrait, ModelTrait,
-    QueryFilter, Set,
+    ActiveModelTrait, ActiveValue::NotSet, Database, DatabaseConnection, EntityTrait, Set,
 };
-
-#[async_trait]
-pub trait UserRepository {
-    async fn get_by_id(&self, id: i32) -> Result<User, sqlx::Error>;
-    async fn list(&self) -> Result<Vec<User>, sqlx::Error>;
-    async fn create(
-        &self,
-        name: String,
-        description: Option<String>,
-        age: Option<i32>,
-        sex: Option<String>,
-    ) -> Result<User, sqlx::Error>;
-    async fn update(
-        &self,
-        id: i32,
-        name: Option<String>,
-        description: Option<String>,
-        age: Option<i32>,
-        sex: Option<String>,
-    ) -> Result<User, sqlx::Error>;
-    async fn delete(&self, id: i32) -> Result<User, sqlx::Error>;
-    async fn hard_delete(&self, id: i32) -> Result<(), sqlx::Error>;
-}
 
 pub struct PgUserRepository {
     pool: DatabaseConnection,
@@ -136,7 +113,6 @@ impl UserRepository for PgUserRepository {
     }
 }
 
-// モックリポジトリの実装（変更なし）
 #[cfg(test)]
 pub mod mock {
     use super::*;
@@ -255,14 +231,12 @@ pub mod mock {
 mod tests {
     use super::*;
     use dotenv::dotenv;
-    use sqlx::postgres::PgPoolOptions;
     use std::env;
 
     async fn setup_test_db() -> DatabaseConnection {
         dotenv().ok();
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-        // こちらを使うことで、正しい型の DatabaseConnection が得られます。
         Database::connect(&database_url)
             .await
             .expect("Failed to connect to database")
