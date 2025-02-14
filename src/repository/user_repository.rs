@@ -1,5 +1,5 @@
 use crate::domain::entity::users::Model as User;
-use chrono::{DateTime, Utc};
+use chrono::{Utc};
 use sqlx::PgPool;
 
 /// ユーザIDでユーザを取得する
