@@ -70,14 +70,18 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: Install tarpaullin
-        run: cargo install cargo-tarpaulin
-
-      - name: Generate coverage report
-        run: |
-          cargo tarpaulin --out Xml
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v3
+      - name: Run tests
+        run: cargo test --verbose
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      - name: rust-grcov
+        uses: actions-rs/grcov@v0.1
+      - name: Codecov
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          fail_ci_if_error: true
