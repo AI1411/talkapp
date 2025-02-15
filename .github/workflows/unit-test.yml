@@ -70,14 +70,20 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
+      - name: Install kcov
+        run: sudo apt-get update && sudo apt-get install -y kcov
 
-      - name: Run tests with coverage
-        run: cargo llvm-cov --output-path lcov.info --export lcov
+      - name: Run tests with kcov
+        run: |
+          cargo test --no-run
+          mkdir -p coverage
+          for test_bin in $(find target/debug/deps -maxdepth 1 -type f -executable); do
+            echo "Running kcov on $test_bin"
+            kcov --lcov --exclude-pattern=/.cargo --include-path=src coverage "$test_bin"
+          done
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: lcov.info
+          files: coverage/lcov.info
