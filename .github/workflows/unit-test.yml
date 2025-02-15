@@ -70,8 +70,8 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
+      - name: Install tarpaullin
+        run: cargo install cargo-tarpaulin
 
       - name: Generate coverage report
         run: |
