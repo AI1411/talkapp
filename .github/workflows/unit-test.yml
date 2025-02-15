@@ -32,11 +32,15 @@ jobs:
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
-      - name: Set up Rust toolchain
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -67,16 +71,15 @@ jobs:
           cd migration
           cargo run -- up
 
-      - name: Build
-        run: cargo build --verbose
+      - name: Build and test with coverage
+        run: cargo llvm-cov test --workspace --all-features --lcov --output-path lcov.info
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-C instrument-coverage'
 
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-
-      - name: Run tests with coverage
-        run: cargo llvm-cov --output-path coverage.out
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
         with:
+          files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true

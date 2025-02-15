@@ -1,3 +1,4 @@
+use sea_orm::sea_query::Expr;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -22,8 +23,18 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Users::Description).string().null())
                     .col(ColumnDef::new(Users::Age).integer().null())
                     .col(ColumnDef::new(Users::Sex).string().null())
-                    .col(ColumnDef::new(Users::CreatedAt).timestamp().not_null())
-                    .col(ColumnDef::new(Users::UpdatedAt).timestamp().not_null())
+                    .col(
+                        ColumnDef::new(Users::CreatedAt)
+                            .timestamp()
+                            .not_null()
+                            .default(Expr::cust("CURRENT_TIMESTAMP")),
+                    )
+                    .col(
+                        ColumnDef::new(Users::UpdatedAt)
+                            .timestamp()
+                            .not_null()
+                            .default(Expr::cust("CURRENT_TIMESTAMP")),
+                    )
                     .col(ColumnDef::new(Users::DeletedAt).timestamp().null())
                     .to_owned(),
             )
@@ -38,7 +49,8 @@ impl MigrationTrait for Migration {
                     .col(Users::Name)
                     .to_owned(),
             )
-            .await.expect("create index idx_name");
+            .await
+            .expect("create index idx_name");
 
         manager
             .create_index(
@@ -48,7 +60,8 @@ impl MigrationTrait for Migration {
                     .col(Users::Age)
                     .to_owned(),
             )
-            .await.expect("create index idx_age");
+            .await
+            .expect("create index idx_age");
 
         manager
             .create_index(

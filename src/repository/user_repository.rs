@@ -1,310 +1,510 @@
 use crate::domain::entity::users::Model as User;
-use chrono::{Utc};
-use sqlx::PgPool;
+use crate::domain::entity::users::{self, Entity as Users};
+use crate::domain::repository::user::UserRepository;
+use async_trait::async_trait;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::NotSet, Database, DatabaseConnection, EntityTrait, Set,
+};
 
-/// ユーザIDでユーザを取得する
-pub async fn get_user_by_id(pool: &PgPool, id: i32) -> Result<User, sqlx::Error> {
-    let user = sqlx::query_as!(
-        User,
-        r#"
-        SELECT id, name, description, age, sex, created_at, updated_at, deleted_at
-        FROM users
-        WHERE id = $1
-        "#,
-        id
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(user)
+pub struct PgUserRepository {
+    pool: DatabaseConnection,
 }
 
-/// ユーザ一覧を取得する
-pub async fn list_users(pool: &PgPool) -> Result<Vec<User>, sqlx::Error> {
-    let users = sqlx::query_as!(
-        User,
-        r#"
-        SELECT id, name, description, age, sex, created_at, updated_at, deleted_at
-        FROM users
-        ORDER BY id
-        "#
-    )
-    .fetch_all(pool)
-    .await?;
-    Ok(users)
+impl PgUserRepository {
+    pub fn new(pool: DatabaseConnection) -> Self {
+        Self { pool }
+    }
 }
 
-/// 新規ユーザを作成する
-pub async fn create_user(
-    pool: &PgPool,
-    name: String,
-    description: Option<String>,
-    age: Option<i32>,
-    sex: Option<String>,
-) -> Result<User, sqlx::Error> {
-    let now = Utc::now().naive_utc();
-    let user = sqlx::query_as!(
-        User,
-        r#"
-        INSERT INTO users (name, description, age, sex, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, name, description, age, sex, created_at, updated_at, deleted_at
-        "#,
-        name,
-        description,
-        age,
-        sex,
-        now,
-        now
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(user)
+#[async_trait]
+impl UserRepository for PgUserRepository {
+    async fn get_by_id(&self, id: i32) -> Result<User, sqlx::Error> {
+        Users::find_by_id(id)
+            .one(&self.pool)
+            .await
+            .map_err(|e| sqlx::Error::Protocol(e.to_string().into()))?
+            .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    async fn list(&self) -> Result<Vec<User>, sqlx::Error> {
+        Users::find()
+            .all(&self.pool)
+            .await
+            .map_err(|e| sqlx::Error::Protocol(e.to_string().into()))
+    }
+
+    async fn create(
+        &self,
+        name: String,
+        description: Option<String>,
+        age: Option<i32>,
+        sex: Option<String>,
+    ) -> Result<User, sqlx::Error> {
+        let now = chrono::Utc::now().naive_utc();
+
+        let user = users::ActiveModel {
+            id: NotSet,
+            name: Set(name),
+            description: Set(description),
+            age: Set(age),
+            sex: Set(sex),
+            created_at: Set(now),
+            updated_at: Set(now),
+            deleted_at: Set(None),
+        };
+
+        user.insert(&self.pool)
+            .await
+            .map_err(|e| sqlx::Error::Protocol(e.to_string().into()))
+    }
+
+    async fn update(
+        &self,
+        id: i32,
+        name: Option<String>,
+        description: Option<String>,
+        age: Option<i32>,
+        sex: Option<String>,
+    ) -> Result<User, sqlx::Error> {
+        let user = Users::find_by_id(id)
+            .one(&self.pool)
+            .await
+            .map_err(|e| sqlx::Error::Protocol(e.to_string().into()))?
+            .ok_or(sqlx::Error::RowNotFound)?;
+
+        let mut user: users::ActiveModel = user.into();
+
+        if let Some(name) = name {
+            user.name = Set(name);
+        }
+        if let Some(desc) = description {
+            user.description = Set(Some(desc));
+        }
+        if let Some(age) = age {
+            user.age = Set(Some(age));
+        }
+        if let Some(sex) = sex {
+            user.sex = Set(Some(sex));
+        }
+        user.updated_at = Set(chrono::Utc::now().naive_utc());
+
+        user.update(&self.pool)
+            .await
+            .map_err(|e| sqlx::Error::Protocol(e.to_string().into()))
+    }
+
+    async fn delete(&self, id: i32) -> Result<User, sqlx::Error> {
+        let user = self.get_by_id(id).await?;
+        let mut user: users::ActiveModel = user.into();
+
+        user.deleted_at = Set(Some(chrono::Utc::now().naive_utc()));
+
+        user.update(&self.pool)
+            .await
+            .map_err(|e| sqlx::Error::Protocol(e.to_string().into()))
+    }
+
+    async fn hard_delete(&self, id: i32) -> Result<(), sqlx::Error> {
+        Users::delete_by_id(id)
+            .exec(&self.pool)
+            .await
+            .map_err(|e| sqlx::Error::Protocol(e.to_string().into()))?;
+        Ok(())
+    }
 }
 
-/// ユーザ情報を更新する
-pub async fn update_user(
-    pool: &PgPool,
-    id: i32,
-    name: Option<String>,
-    description: Option<String>,
-    age: Option<i32>,
-    sex: Option<String>,
-) -> Result<User, sqlx::Error> {
-    let user = get_user_by_id(pool, id).await?;
-    let now = Utc::now().naive_utc();
+#[cfg(test)]
+pub mod mock {
+    use super::*;
+    use std::collections::HashMap;
+    use std::sync::Mutex;
 
-    let updated_user = sqlx::query_as!(
-        User,
-        r#"
-        UPDATE users
-        SET
-            name = $1,
-            description = $2,
-            age = $3,
-            sex = $4,
-            updated_at = $5
-        WHERE id = $6
-        RETURNING id, name, description, age, sex, created_at, updated_at, deleted_at
-        "#,
-        name.unwrap_or(user.name),
-        description.or(user.description),
-        age.or(user.age),
-        sex.or(user.sex),
-        now,
-        id
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(updated_user)
-}
+    pub struct MockUserRepository {
+        users: Mutex<HashMap<i32, User>>,
+        next_id: Mutex<i32>,
+    }
 
-/// ユーザを論理削除する
-pub async fn delete_user(pool: &PgPool, id: i32) -> Result<User, sqlx::Error> {
-    let now = Utc::now().naive_utc();
-    let user = sqlx::query_as!(
-        User,
-        r#"
-        UPDATE users
-        SET deleted_at = $1
-        WHERE id = $2
-        RETURNING id, name, description, age, sex, created_at, updated_at, deleted_at
-        "#,
-        Some(now),
-        id
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(user)
-}
+    impl MockUserRepository {
+        pub fn new() -> Self {
+            Self {
+                users: Mutex::new(HashMap::new()),
+                next_id: Mutex::new(1),
+            }
+        }
+    }
 
-/// ユーザを物理削除する
-pub async fn hard_delete_user(pool: &PgPool, id: i32) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        r#"
-        DELETE FROM users
-        WHERE id = $1
-        "#,
-        id
-    )
-    .execute(pool)
-    .await?;
-    Ok(())
+    #[async_trait]
+    impl UserRepository for MockUserRepository {
+        async fn get_by_id(&self, id: i32) -> Result<User, sqlx::Error> {
+            let users = self.users.lock().unwrap();
+            users
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| sqlx::Error::RowNotFound)
+        }
+
+        async fn list(&self) -> Result<Vec<User>, sqlx::Error> {
+            let users = self.users.lock().unwrap();
+            Ok(users.values().cloned().collect())
+        }
+
+        async fn create(
+            &self,
+            name: String,
+            description: Option<String>,
+            age: Option<i32>,
+            sex: Option<String>,
+        ) -> Result<User, sqlx::Error> {
+            let mut next_id = self.next_id.lock().unwrap();
+            let id = *next_id;
+            *next_id += 1;
+
+            let now = chrono::Utc::now().naive_utc();
+            let user = User {
+                id,
+                name,
+                description,
+                age,
+                sex,
+                created_at: now,
+                updated_at: now,
+                deleted_at: None,
+            };
+
+            let mut users = self.users.lock().unwrap();
+            users.insert(id, user.clone());
+            Ok(user)
+        }
+
+        async fn update(
+            &self,
+            id: i32,
+            name: Option<String>,
+            description: Option<String>,
+            age: Option<i32>,
+            sex: Option<String>,
+        ) -> Result<User, sqlx::Error> {
+            let mut users = self.users.lock().unwrap();
+
+            if let Some(user) = users.get_mut(&id) {
+                if let Some(name) = name {
+                    user.name = name;
+                }
+                if let Some(desc) = description {
+                    user.description = Some(desc);
+                }
+                if let Some(age) = age {
+                    user.age = Some(age);
+                }
+                if let Some(sex) = sex {
+                    user.sex = Some(sex);
+                }
+                user.updated_at = chrono::Utc::now().naive_utc();
+                Ok(user.clone())
+            } else {
+                Err(sqlx::Error::RowNotFound)
+            }
+        }
+
+        async fn delete(&self, id: i32) -> Result<User, sqlx::Error> {
+            let mut users = self.users.lock().unwrap();
+            if let Some(user) = users.get_mut(&id) {
+                user.deleted_at = Some(chrono::Utc::now().naive_utc());
+                Ok(user.clone())
+            } else {
+                Err(sqlx::Error::RowNotFound)
+            }
+        }
+
+        async fn hard_delete(&self, id: i32) -> Result<(), sqlx::Error> {
+            let mut users = self.users.lock().unwrap();
+            if users.remove(&id).is_some() {
+                Ok(())
+            } else {
+                Err(sqlx::Error::RowNotFound)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use dotenv::dotenv;
-    use sqlx::postgres::PgPoolOptions;
     use std::env;
 
-    async fn setup_test_db() -> PgPool {
+    async fn setup_test_db() -> DatabaseConnection {
         dotenv().ok();
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-        PgPoolOptions::new()
-            .max_connections(5)
-            .connect(&database_url)
+        Database::connect(&database_url)
             .await
-            .expect("Failed to create pool")
+            .expect("Failed to connect to database")
     }
 
-    // テストユーザーを作成するヘルパー関数
-    async fn create_test_user(pool: &PgPool) -> User {
-        create_user(
-            pool,
-            "Test User".to_string(),
-            Some("Test Description".to_string()),
-            Some(25),
-            Some("Male".to_string()),
-        )
+    mod pg_repository_tests {
+        use super::*;
+
+        async fn create_test_user(repo: &PgUserRepository) -> User {
+            repo.create(
+                "Test User".to_string(),
+                Some("Test Description".to_string()),
+                Some(25),
+                Some("Male".to_string()),
+            )
             .await
             .expect("Failed to create test user")
+        }
+
+        #[tokio::test]
+        async fn test_create_user() {
+            let pool = setup_test_db().await;
+            let repo = PgUserRepository::new(pool);
+
+            let user = repo
+                .create(
+                    "Test User".to_string(),
+                    Some("Test Description".to_string()),
+                    Some(25),
+                    Some("Male".to_string()),
+                )
+                .await
+                .expect("Failed to create user");
+
+            assert_eq!(user.name, "Test User");
+            assert_eq!(user.description, Some("Test Description".to_string()));
+            assert_eq!(user.age, Some(25));
+            assert_eq!(user.sex, Some("Male".to_string()));
+            assert!(user.deleted_at.is_none());
+
+            repo.hard_delete(user.id).await.expect("Failed to cleanup");
+        }
+
+        #[tokio::test]
+        async fn test_get_user_by_id() {
+            let pool = setup_test_db().await;
+            let repo = PgUserRepository::new(pool);
+
+            // テストユーザーを作成
+            let created_user = create_test_user(&repo).await;
+
+            let retrieved_user = repo
+                .get_by_id(created_user.id)
+                .await
+                .expect("Failed to get user");
+
+            assert_eq!(retrieved_user.id, created_user.id);
+            assert_eq!(retrieved_user.name, created_user.name);
+            assert_eq!(retrieved_user.description, created_user.description);
+            assert_eq!(retrieved_user.age, created_user.age);
+            assert_eq!(retrieved_user.sex, created_user.sex);
+
+            repo.hard_delete(created_user.id)
+                .await
+                .expect("Failed to cleanup");
+        }
+
+        #[tokio::test]
+        async fn test_list_users() {
+            let pool = setup_test_db().await;
+            let repo = PgUserRepository::new(pool);
+
+            // 2人のテストユーザーを作成
+            let user1 = create_test_user(&repo).await;
+            let user2 = repo
+                .create(
+                    "Another User".to_string(),
+                    Some("Another Description".to_string()),
+                    Some(30),
+                    Some("Female".to_string()),
+                )
+                .await
+                .expect("Failed to create second user");
+
+            let users = repo.list().await.expect("Failed to list users");
+
+            assert!(users.len() >= 2);
+            assert!(users.iter().any(|u| u.id == user1.id));
+            assert!(users.iter().any(|u| u.id == user2.id));
+
+            // クリーンアップ
+            repo.hard_delete(user1.id).await.expect("Failed to cleanup");
+            repo.hard_delete(user2.id).await.expect("Failed to cleanup");
+        }
+
+        #[tokio::test]
+        async fn test_update_user() {
+            let pool = setup_test_db().await;
+            let repo = PgUserRepository::new(pool);
+
+            let created_user = create_test_user(&repo).await;
+
+            let updated_user = repo
+                .update(
+                    created_user.id,
+                    Some("Updated Name".to_string()),
+                    Some("Updated Description".to_string()),
+                    Some(26),
+                    Some("Female".to_string()),
+                )
+                .await
+                .expect("Failed to update user");
+
+            assert_eq!(updated_user.id, created_user.id);
+            assert_eq!(updated_user.name, "Updated Name");
+            assert_eq!(
+                updated_user.description,
+                Some("Updated Description".to_string())
+            );
+            assert_eq!(updated_user.age, Some(26));
+            assert_eq!(updated_user.sex, Some("Female".to_string()));
+            assert!(updated_user.updated_at > created_user.updated_at);
+
+            repo.hard_delete(created_user.id)
+                .await
+                .expect("Failed to cleanup");
+        }
+
+        #[tokio::test]
+        async fn test_partial_update() {
+            let pool = setup_test_db().await;
+            let repo = PgUserRepository::new(pool);
+
+            let created_user = create_test_user(&repo).await;
+
+            let updated_user = repo
+                .update(
+                    created_user.id,
+                    Some("Updated Name".to_string()),
+                    None, // description は更新しない
+                    None, // age は更新しない
+                    None, // sex は更新しない
+                )
+                .await
+                .expect("Failed to partially update user");
+
+            assert_eq!(updated_user.name, "Updated Name");
+            assert_eq!(updated_user.description, created_user.description);
+            assert_eq!(updated_user.age, created_user.age);
+            assert_eq!(updated_user.sex, created_user.sex);
+
+            repo.hard_delete(created_user.id)
+                .await
+                .expect("Failed to cleanup");
+        }
+
+        #[tokio::test]
+        async fn test_delete_user() {
+            let pool = setup_test_db().await;
+            let repo = PgUserRepository::new(pool);
+
+            let created_user = create_test_user(&repo).await;
+
+            // 論理削除のテスト
+            let deleted_user = repo
+                .delete(created_user.id)
+                .await
+                .expect("Failed to delete user");
+
+            assert_eq!(deleted_user.id, created_user.id);
+            assert!(deleted_user.deleted_at.is_some());
+
+            // 物理削除のテスト
+            repo.hard_delete(created_user.id)
+                .await
+                .expect("Failed to hard delete user");
+
+            // ユーザーが本当に削除されたか確認
+            let result = repo.get_by_id(created_user.id).await;
+            assert!(result.is_err());
+        }
     }
 
-    // クリーンアップ用のヘルパー関数
-    async fn cleanup_user(pool: &PgPool, user_id: i32) {
-        hard_delete_user(pool, user_id)
-            .await
-            .expect("Failed to cleanup test user");
-    }
+    mod mock_repository_tests {
+        use super::*;
 
-    #[tokio::test]
-    async fn test_create_user() {
-        let pool = setup_test_db().await;
+        #[tokio::test]
+        async fn test_mock_create_and_get() {
+            let repo = mock::MockUserRepository::new();
 
-        let new_user = create_user(
-            &pool,
-            "Test User".to_string(),
-            Some("Test Description".to_string()),
-            Some(25),
-            Some("Male".to_string()),
-        )
-            .await
-            .expect("Failed to create user");
+            let user = repo
+                .create(
+                    "Test User".to_string(),
+                    Some("Test Description".to_string()),
+                    Some(25),
+                    Some("Male".to_string()),
+                )
+                .await
+                .expect("Failed to create user");
 
-        assert_eq!(new_user.name, "Test User");
-        assert_eq!(new_user.description, Some("Test Description".to_string()));
-        assert_eq!(new_user.age, Some(25));
-        assert_eq!(new_user.sex, Some("Male".to_string()));
-        assert!(new_user.deleted_at.is_none());
+            assert_eq!(user.name, "Test User");
 
-        cleanup_user(&pool, new_user.id).await;
-    }
+            let retrieved = repo.get_by_id(user.id).await.expect("Failed to get user");
+            assert_eq!(retrieved.id, user.id);
+            assert_eq!(retrieved.name, "Test User");
+        }
 
-    #[tokio::test]
-    async fn test_get_user_by_id() {
-        let pool = setup_test_db().await;
-        let created_user = create_test_user(&pool).await;
+        #[tokio::test]
+        async fn test_mock_list_users() {
+            let repo = mock::MockUserRepository::new();
 
-        let retrieved_user = get_user_by_id(&pool, created_user.id)
-            .await
-            .expect("Failed to get user");
+            // Create multiple users
+            let user1 = repo
+                .create("User 1".to_string(), None, None, None)
+                .await
+                .expect("Failed to create user 1");
+            let user2 = repo
+                .create("User 2".to_string(), None, None, None)
+                .await
+                .expect("Failed to create user 2");
 
-        assert_eq!(retrieved_user.id, created_user.id);
-        assert_eq!(retrieved_user.name, created_user.name);
-        assert_eq!(retrieved_user.description, created_user.description);
-        assert_eq!(retrieved_user.age, created_user.age);
-        assert_eq!(retrieved_user.sex, created_user.sex);
+            let users = repo.list().await.expect("Failed to list users");
+            assert_eq!(users.len(), 2);
+            assert!(users.iter().any(|u| u.id == user1.id));
+            assert!(users.iter().any(|u| u.id == user2.id));
+        }
 
-        cleanup_user(&pool, created_user.id).await;
-    }
+        #[tokio::test]
+        async fn test_mock_update() {
+            let repo = mock::MockUserRepository::new();
 
-    #[tokio::test]
-    async fn test_list_users() {
-        let pool = setup_test_db().await;
-        let user1 = create_test_user(&pool).await;
-        let user2 = create_user(
-            &pool,
-            "Another User".to_string(),
-            Some("Another Description".to_string()),
-            Some(30),
-            Some("Female".to_string()),
-        )
-            .await
-            .expect("Failed to create second user");
+            let user = repo
+                .create("Initial Name".to_string(), None, None, None)
+                .await
+                .expect("Failed to create user");
 
-        let users = list_users(&pool).await.expect("Failed to list users");
+            let updated = repo
+                .update(user.id, Some("Updated Name".to_string()), None, None, None)
+                .await
+                .expect("Failed to update user");
 
-        assert!(users.len() >= 2); // データベースに他のデータが存在する可能性があるため
-        assert!(users.iter().any(|u| u.id == user1.id));
-        assert!(users.iter().any(|u| u.id == user2.id));
+            assert_eq!(updated.name, "Updated Name");
+        }
 
-        cleanup_user(&pool, user1.id).await;
-        cleanup_user(&pool, user2.id).await;
-    }
+        #[tokio::test]
+        async fn test_mock_delete() {
+            let repo = mock::MockUserRepository::new();
 
-    #[tokio::test]
-    async fn test_update_user() {
-        let pool = setup_test_db().await;
-        let created_user = create_test_user(&pool).await;
+            let user = repo
+                .create("Test User".to_string(), None, None, None)
+                .await
+                .expect("Failed to create user");
 
-        let updated_user = update_user(
-            &pool,
-            created_user.id,
-            Some("Updated Name".to_string()),
-            Some("Updated Description".to_string()),
-            Some(26),
-            Some("Female".to_string()),
-        )
-            .await
-            .expect("Failed to update user");
+            let deleted = repo.delete(user.id).await.expect("Failed to delete user");
+            assert!(deleted.deleted_at.is_some());
 
-        assert_eq!(updated_user.id, created_user.id);
-        assert_eq!(updated_user.name, "Updated Name");
-        assert_eq!(updated_user.description, Some("Updated Description".to_string()));
-        assert_eq!(updated_user.age, Some(26));
-        assert_eq!(updated_user.sex, Some("Female".to_string()));
-        assert!(updated_user.updated_at > created_user.updated_at);
+            repo.hard_delete(user.id)
+                .await
+                .expect("Failed to hard delete");
+            let result = repo.get_by_id(user.id).await;
+            assert!(matches!(result, Err(sqlx::Error::RowNotFound)));
+        }
 
-        cleanup_user(&pool, created_user.id).await;
-    }
-
-    #[tokio::test]
-    async fn test_delete_user() {
-        let pool = setup_test_db().await;
-        let created_user = create_test_user(&pool).await;
-
-        // 論理削除のテスト
-        let deleted_user = delete_user(&pool, created_user.id)
-            .await
-            .expect("Failed to delete user");
-
-        assert_eq!(deleted_user.id, created_user.id);
-        assert!(deleted_user.deleted_at.is_some());
-
-        // 物理削除のテスト
-        hard_delete_user(&pool, created_user.id)
-            .await
-            .expect("Failed to hard delete user");
-
-        // ユーザーが本当に削除されたか確認
-        let result = get_user_by_id(&pool, created_user.id).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_partial_update() {
-        let pool = setup_test_db().await;
-        let created_user = create_test_user(&pool).await;
-
-        // 一部のフィールドのみを更新
-        let updated_user = update_user(
-            &pool,
-            created_user.id,
-            Some("Updated Name".to_string()),
-            None,  // description は更新しない
-            None,  // age は更新しない
-            None,  // sex は更新しない
-        )
-            .await
-            .expect("Failed to partially update user");
-
-        assert_eq!(updated_user.name, "Updated Name");
-        assert_eq!(updated_user.description, created_user.description);
-        assert_eq!(updated_user.age, created_user.age);
-        assert_eq!(updated_user.sex, created_user.sex);
-
-        cleanup_user(&pool, created_user.id).await;
+        #[tokio::test]
+        async fn test_mock_not_found() {
+            let repo = mock::MockUserRepository::new();
+            let result = repo.get_by_id(999).await;
+            assert!(matches!(result, Err(sqlx::Error::RowNotFound)));
+        }
     }
 }
