@@ -70,17 +70,10 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: install webkit2gtk
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y webkit2gtk-4.0
-      - name: Install cargo-tarpaulin
-        run: (cargo install cargo-tarpaulin || true)
-      - name: Run Test & Push Core Coverage to codecov.io
-        run: |
-          cargo tarpaulin --output-dir core --manifest-path core/Cargo.toml --out Xml
-          bash <(curl -s https://codecov.io/bash) -f "core/cobertura.xml" -t ${{ secrets.CODECOV_TOKEN }} -F core
-      - name: Run Test & Push Plugin Coverage to codecov.io
-        run: |
-          cargo tarpaulin --output-dir plugins --manifest-path plugins/Cargo.toml --out Xml
-          bash <(curl -s https://codecov.io/bash) -f "plugins/cobertura.xml" -t ${{ secrets.CODECOV_TOKEN }} -F plugins
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+
+      - name: Run tests with coverage
+        run: cargo llvm-cov --output-path coverage.out
+
+      - uses: k1LoW/octocov-action@v1
