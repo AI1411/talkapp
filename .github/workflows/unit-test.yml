@@ -70,20 +70,17 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: Install kcov
-        run: sudo apt-get update && sudo apt-get install -y kcov
-
-      - name: Run tests with kcov
+      - name: install webkit2gtk
         run: |
-          cargo test --no-run
-          mkdir -p coverage
-          for test_bin in $(find target/debug/deps -maxdepth 1 -type f -executable); do
-            echo "Running kcov on $test_bin"
-            kcov --lcov --exclude-pattern=/.cargo --include-path=src coverage "$test_bin"
-          done
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage/lcov.info
+          sudo apt-get update
+          sudo apt-get install -y webkit2gtk-4.0
+      - name: Install cargo-tarpaulin
+        run: (cargo install cargo-tarpaulin || true)
+      - name: Run Test & Push Core Coverage to codecov.io
+        run: |
+          cargo tarpaulin --output-dir core --manifest-path core/Cargo.toml --out Xml
+          bash <(curl -s https://codecov.io/bash) -f "core/cobertura.xml" -t ${{ secrets.CODECOV_TOKEN }} -F core
+      - name: Run Test & Push Plugin Coverage to codecov.io
+        run: |
+          cargo tarpaulin --output-dir plugins --manifest-path plugins/Cargo.toml --out Xml
+          bash <(curl -s https://codecov.io/bash) -f "plugins/cobertura.xml" -t ${{ secrets.CODECOV_TOKEN }} -F plugins
