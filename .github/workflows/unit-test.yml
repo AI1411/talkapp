@@ -73,10 +73,11 @@ jobs:
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov
 
-      - name: Run tests with coverage (LCOV)
+      - name: Generate coverage report
         run: |
-          mkdir -p coverage
-          cargo llvm-cov --output-path coverage/lcov.info
+          cargo tarpaulin --out Xml
 
-      - name: Run octocov and report metrics
-        uses: k1LoW/octocov-action@v1
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
