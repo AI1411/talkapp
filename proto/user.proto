@@ -14,20 +14,16 @@ service UserService {
 }
 
 message CreateUserRequest {
-  string username = 1;
+  string name = 1;
   string email = 2;
   google.protobuf.StringValue gender = 3;
   google.protobuf.StringValue address = 4;
-  google.protobuf.StringValue self_introduction = 5;
+  google.protobuf.StringValue description = 5;
+  uint32 age = 6;
 }
 
 message CreateUserResponse {
-  uint64 id = 1;
-  string username = 2;
-  string email = 3;
-  google.protobuf.StringValue gender = 4;
-  google.protobuf.StringValue address = 5;
-  google.protobuf.StringValue self_introduction = 6;
+  User user = 1;
 }
 
 // ユーザ一覧取得（検索）のリクエストに、検索条件を追加
@@ -37,16 +33,17 @@ message ListUsersRequest {
   // 検索条件として、以下のフィールドが指定された場合、その値でフィルタします
   google.protobuf.StringValue gender = 3;    // 性別での検索
   google.protobuf.StringValue address = 4;   // 住みでの検索
-  google.protobuf.StringValue username = 5;  // 名前での検索
+  google.protobuf.StringValue name = 5;  // 名前での検索
 }
 
 message User {
   uint64 id = 1;
-  string username = 2;
-  string email = 3;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue email = 3;
   google.protobuf.StringValue gender = 4;
   google.protobuf.StringValue address = 5;
-  google.protobuf.StringValue self_introduction = 6;
+  google.protobuf.StringValue description = 6;
+  uint32 age = 7;
 }
 
 message ListUsersResponse {
@@ -63,11 +60,12 @@ message GetUserResponse {
 
 message UpdateUserRequest {
   uint64 id = 1;
-  google.protobuf.StringValue username = 2;
+  google.protobuf.StringValue name = 2;
   google.protobuf.StringValue email = 3;
   google.protobuf.StringValue gender = 4;
   google.protobuf.StringValue address = 5;
-  google.protobuf.StringValue self_introduction = 6;
+  google.protobuf.StringValue description = 6;
+  google.protobuf.UInt32Value age = 7;
 }
 
 message UpdateUserResponse {

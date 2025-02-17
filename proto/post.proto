@@ -21,10 +21,7 @@ message CreatePostRequest {
 }
 
 message CreatePostResponse {
-  uint64 id = 1;
-  string body = 2;
-  uint64 user_id = 3;
-  string created_at = 4;
+  Post post = 1;
 }
 
 message ListPostsRequest {

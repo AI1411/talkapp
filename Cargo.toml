@@ -17,6 +17,7 @@ tracing = "0.1.41"
 async-std = { version = "1", features = ["attributes", "tokio1"] }
 chrono = "0.4.39"
 async-trait = "0.1.86"
+prost-types = "0.13.5"
 
 [build-dependencies]
 tonic-build = "0.12.3"
