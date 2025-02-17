@@ -20,9 +20,11 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Users::Name).string().not_null())
+                    .col(ColumnDef::new(Users::Email).string().not_null())
                     .col(ColumnDef::new(Users::Description).string().null())
                     .col(ColumnDef::new(Users::Age).integer().null())
-                    .col(ColumnDef::new(Users::Sex).string().null())
+                    .col(ColumnDef::new(Users::Gender).string().null())
+                    .col(ColumnDef::new(Users::Address).string().null())
                     .col(
                         ColumnDef::new(Users::CreatedAt)
                             .timestamp()
@@ -68,7 +70,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name("idx_sex")
                     .table(Users::Table)
-                    .col(Users::Sex)
+                    .col(Users::Gender)
                     .to_owned(),
             )
             .await
@@ -86,9 +88,11 @@ pub enum Users {
     Table,
     Id,
     Name,
+    Email,
     Description,
-    Sex,
+    Gender,
     Age,
+    Address,
     CreatedAt,
     UpdatedAt,
     DeletedAt,
