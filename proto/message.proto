@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package message;
+
+import "google/protobuf/wrappers.proto";
+
+service MessageService {
+  // メッセージ作成
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
+  // メッセージ一覧取得
+  rpc ListMessages (ListMessagesRequest) returns (ListMessagesResponse);
+  // ユーザー間のメッセージ履歴取得
+  rpc GetConversation (GetConversationRequest) returns (GetConversationResponse);
+  // メッセージ既読
+  rpc MarkAsRead (MarkAsReadRequest) returns (MarkAsReadResponse);
+  // メッセージ削除
+  rpc DeleteMessage (DeleteMessageRequest) returns (DeleteMessageResponse);
+}
+
+message SendMessageRequest {
+  uint64 sender_id = 1;
+  uint64 receiver_id = 2;
+  string content = 3;
+}
+
+message SendMessageResponse {
+  Message message = 1;
+}
+
+message ListMessagesRequest {
+  uint64 user_id = 1;  // ユーザーID
+  bool unread_only = 2;  // 未読のみを取得する場合はtrue
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message Message {
+  uint64 id = 1;
+  uint64 sender_id = 2;
+  uint64 receiver_id = 3;
+  string content = 4;
+  bool is_read = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message ListMessagesResponse {
+  repeated Message messages = 1;
+  int32 total_count = 2;
+  int32 unread_count = 3;
+}
+
+message GetConversationRequest {
+  uint64 user_id_1 = 1;  // 1人目のユーザーID
+  uint64 user_id_2 = 2;  // 2人目のユーザーID
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message GetConversationResponse {
+  repeated Message messages = 1;
+  int32 total_count = 2;
+}
+
+message MarkAsReadRequest {
+  uint64 message_id = 1;
+  // 複数指定する場合はこちらを使用
+  repeated uint64 message_ids = 2;
+  // 特定ユーザーからの全てのメッセージを既読にする場合
+  google.protobuf.UInt64Value from_user_id = 3;
+  google.protobuf.UInt64Value to_user_id = 4;
+}
+
+message MarkAsReadResponse {
+  int32 updated_count = 1;
+}
+
+message DeleteMessageRequest {
+  uint64 message_id = 1;
+}
+
+message DeleteMessageResponse {
+  bool success = 1;
+}

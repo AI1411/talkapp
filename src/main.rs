@@ -21,6 +21,10 @@ mod post_proto {
     tonic::include_proto!("post");
 }
 
+mod message_proto {
+    tonic::include_proto!("message");
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
