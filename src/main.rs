@@ -4,10 +4,13 @@ mod infra;
 mod repository;
 mod usecase;
 
+use crate::handler::message_handler::MessageHandler;
 use crate::handler::post_handler::PostHandler;
 use crate::handler::user_handler::UserHandler;
+use crate::repository::message_repository::PgMessageRepository;
 use crate::repository::post_repository::PgPostRepository;
 use crate::repository::user_repository::PgUserRepository;
+use crate::usecase::message_usecase::MessageUseCaseImpl;
 use crate::usecase::post_usecase::PostUseCaseImpl;
 use crate::usecase::user_usecase::UserUseCaseImpl;
 use dotenv::dotenv;
@@ -44,6 +47,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let post_usecase = PostUseCaseImpl::new(post_repository);
     let post_handler = PostHandler::new(post_usecase);
 
+    let message_repository = PgMessageRepository::new(pool.clone());
+    let message_usecase = MessageUseCaseImpl::new(message_repository);
+    let message_handler = MessageHandler::new(message_usecase);
+
     let addr = "[::1]:50051".parse()?;
     println!("Server listening on {}", addr);
 
@@ -55,6 +62,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_service(post_proto::post_service_server::PostServiceServer::new(
             post_handler,
         ))
+        .add_service(
+            message_proto::message_service_server::MessageServiceServer::new(message_handler),
+        )
         .serve(addr)
         .await?;
 

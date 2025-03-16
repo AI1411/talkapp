@@ -51,8 +51,8 @@ message ListMessagesResponse {
 }
 
 message GetConversationRequest {
-  uint64 user_id_1 = 1;  // 1人目のユーザーID
-  uint64 user_id_2 = 2;  // 2人目のユーザーID
+  uint64 user_id = 1;  // リクエストを送信するユーザーID
+  uint64 peer_id = 2;  // 会話相手のユーザーID
   int32 page = 3;
   int32 per_page = 4;
 }

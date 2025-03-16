@@ -1,9 +1,9 @@
 // repository.rs
 use crate::domain::entity::users::Model as User;
 use crate::domain::entity::users::{self, Entity as Users};
+use crate::domain::repository::user::UserRepository;
 use async_trait::async_trait;
 use sea_orm::{ActiveModelTrait, ActiveValue::NotSet, DatabaseConnection, EntityTrait, Set};
-use crate::domain::repository::user::UserRepository;
 
 /// PgUserRepository の実装
 pub struct PgUserRepository {
