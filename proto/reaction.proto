@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package reaction;
+
+import "google/protobuf/wrappers.proto";
+
+service ReactionService {
+  // リアクションを追加
+  rpc AddReaction (AddReactionRequest) returns (AddReactionResponse);
+  // リアクションを削除
+  rpc RemoveReaction (RemoveReactionRequest) returns (RemoveReactionResponse);
+  // メッセージのリアクションを取得
+  rpc GetReactionsForMessage (GetReactionsForMessageRequest) returns (GetReactionsForMessageResponse);
+  // メッセージのリアクションを集計
+  rpc CountReactionsByType (CountReactionsByTypeRequest) returns (CountReactionsByTypeResponse);
+  // リアクションタイプ一覧を取得
+  rpc ListReactionTypes (ListReactionTypesRequest) returns (ListReactionTypesResponse);
+  // 特定のリアクションタイプを取得
+  rpc GetReactionType (GetReactionTypeRequest) returns (GetReactionTypeResponse);
+}
+
+message AddReactionRequest {
+  uint64 user_id = 1;
+  uint64 message_id = 2;
+  uint64 reaction_type_id = 3;
+}
+
+message Reaction {
+  uint64 id = 1;
+  uint64 user_id = 2;
+  uint64 message_id = 3;
+  uint64 reaction_type_id = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message AddReactionResponse {
+  Reaction reaction = 1;
+}
+
+message RemoveReactionRequest {
+  uint64 user_id = 1;
+  uint64 message_id = 2;
+  google.protobuf.UInt64Value reaction_type_id = 3;  // 省略可能
+}
+
+message RemoveReactionResponse {
+  int32 removed_count = 1;
+}
+
+message GetReactionsForMessageRequest {
+  uint64 message_id = 1;
+}
+
+message GetReactionsForMessageResponse {
+  repeated Reaction reactions = 1;
+}
+
+message CountReactionsByTypeRequest {
+  uint64 message_id = 1;
+}
+
+message ReactionTypeCount {
+  ReactionType reaction_type = 1;
+  int64 count = 2;
+}
+
+message CountReactionsByTypeResponse {
+  repeated ReactionTypeCount counts = 1;
+}
+
+message ListReactionTypesRequest {
+  // 空のリクエスト
+}
+
+message ReactionType {
+  uint64 id = 1;
+  string name = 2;
+  string emoji = 3;
+}
+
+message ListReactionTypesResponse {
+  repeated ReactionType reaction_types = 1;
+}
+
+message GetReactionTypeRequest {
+  uint64 id = 1;
+}
+
+message GetReactionTypeResponse {
+  ReactionType reaction_type = 1;
+}
