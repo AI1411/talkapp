@@ -8,17 +8,21 @@ pub trait UserRepository {
     async fn create(
         &self,
         name: String,
+        email: String,
         description: Option<String>,
         age: Option<i32>,
-        sex: Option<String>,
+        gender: Option<String>,
+        address: Option<String>,
     ) -> Result<User, sqlx::Error>;
     async fn update(
         &self,
         id: i32,
         name: Option<String>,
+        email: Option<String>,
         description: Option<String>,
         age: Option<i32>,
-        sex: Option<String>,
+        gender: Option<String>,
+        address: Option<String>,
     ) -> Result<User, sqlx::Error>;
     async fn delete(&self, id: i32) -> Result<User, sqlx::Error>;
     async fn hard_delete(&self, id: i32) -> Result<(), sqlx::Error>;

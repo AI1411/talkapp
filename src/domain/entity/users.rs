@@ -8,9 +8,11 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub name: String,
+    pub email: String,
     pub description: Option<String>,
     pub age: Option<i32>,
-    pub sex: Option<String>,
+    pub gender: Option<String>,
+    pub address: Option<String>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub deleted_at: Option<DateTime>,
