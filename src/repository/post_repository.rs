@@ -1,9 +1,9 @@
 use crate::domain::entity::post;
-use crate::domain::entity::post::{Column, Entity as Posts, Model as Post};
+use crate::domain::entity::post::{Entity as Posts, Model as Post};
 use crate::domain::repository::post::PostRepository;
 use async_trait::async_trait;
 use sea_orm::entity::prelude::*;
-use sea_orm::{ColumnTrait, DatabaseConnection, NotSet, Set};
+use sea_orm::{DatabaseConnection, NotSet, Set};
 
 pub struct PgPostRepository {
     db: DatabaseConnection,
@@ -31,14 +31,6 @@ impl PostRepository for PgPostRepository {
             .map_err(|_e| DbErr::RecordNotFound(format!("Post with id {} not found", id)))
     }
 
-    async fn find_by_user_id(&self, user_id: i32) -> Result<Vec<Post>, DbErr> {
-        Posts::find()
-            .filter(Column::UserId.eq(user_id))
-            .all(&self.db)
-            .await
-            .map_err(|e| DbErr::Exec(RuntimeErr::Internal(format!("Error: {}", e.to_string()))))
-    }
-
     async fn insert(&self, body: String, user_id: i32) -> Result<Post, DbErr> {
         let _now = chrono::Utc::now().naive_utc();
         let post_data = post::ActiveModel {
@@ -53,26 +45,7 @@ impl PostRepository for PgPostRepository {
             .await
             .map_err(|e| DbErr::Exec(RuntimeErr::Internal(format!("Error: {}", e.to_string()))))
     }
-
-    async fn update(&self, id: i32, body: String) -> Result<Post, DbErr> {
-        let existing_post = Posts::find_by_id(id)
-            .one(&self.db)
-            .await
-            .map_err(|e| DbErr::Custom(format!("Error retrieving post: {}", e)))?
-            .ok_or(DbErr::RecordNotFound(format!(
-                "Post with id {} not found",
-                id
-            )))?;
-
-        let mut active_post: post::ActiveModel = existing_post.into();
-        active_post.body = Set(body.clone());
-
-        active_post
-            .update(&self.db)
-            .await
-            .map_err(|e| DbErr::Exec(RuntimeErr::Internal(format!("Error updating post: {}", e))))
-    }
-
+    
     async fn delete(&self, id: i32) -> Result<(), DbErr> {
         Posts::delete_by_id(id)
             .exec(&self.db)
@@ -152,26 +125,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_post() {
-        let db = setup_test_db().await;
-        let dummy_user_id = insert_dummy_user(&db).await;
-        let repo = PgPostRepository::new(db);
-
-        // 新規レコードを挿入
-        let inserted_post = repo
-            .insert("Original body".to_string(), dummy_user_id)
-            .await
-            .expect("Insert failed");
-
-        // update: id と新しい body を渡す
-        let updated_post = repo
-            .update(inserted_post.id, "Updated body".to_string())
-            .await
-            .expect("Update failed");
-        assert_eq!(updated_post.body, "Updated body");
-    }
-
-    #[tokio::test]
     async fn test_delete_post() {
         let db = setup_test_db().await;
         let dummy_user_id = insert_dummy_user(&db).await;
@@ -191,33 +144,6 @@ mod tests {
         match result {
             Ok(opt) => assert!(opt.is_none(), "Deleted post still exists"),
             Err(e) => eprintln!("Error on get_by_id: {:?}", e),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_find_by_user_id() {
-        let db = setup_test_db().await;
-        let dummy_user_id = insert_dummy_user(&db).await;
-        let repo = PgPostRepository::new(db);
-
-        // 同一 user_id のレコードを2件挿入
-        let _ = repo
-            .insert("User post 1".to_string(), dummy_user_id)
-            .await
-            .expect("Insert post1 failed");
-        let _ = repo
-            .insert("User post 2".to_string(), dummy_user_id)
-            .await
-            .expect("Insert post2 failed");
-
-        let posts = repo
-            .find_by_user_id(dummy_user_id)
-            .await
-            .expect("Find by user_id failed");
-        // dummy_user_id の投稿が 2 件以上あることを確認
-        assert!(posts.len() >= 2);
-        for post in posts {
-            assert_eq!(post.user_id, dummy_user_id);
         }
     }
 }

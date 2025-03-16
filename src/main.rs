@@ -1,31 +1,36 @@
 mod domain;
-mod handler;
-mod infra;
-mod repository;
+mod handler;mod repository;
 mod usecase;
 
 use crate::handler::message_handler::MessageHandler;
 use crate::handler::post_handler::PostHandler;
+use crate::handler::reaction_handler::ReactionHandler;
 use crate::handler::user_handler::UserHandler;
 use crate::repository::message_repository::PgMessageRepository;
 use crate::repository::post_repository::PgPostRepository;
+use crate::repository::reaction_repository::PgReactionRepository;
 use crate::repository::user_repository::PgUserRepository;
 use crate::usecase::message_usecase::MessageUseCaseImpl;
 use crate::usecase::post_usecase::PostUseCaseImpl;
+use crate::usecase::reaction_usecase::ReactionUseCaseImpl;
 use crate::usecase::user_usecase::UserUseCaseImpl;
 use dotenv::dotenv;
 use tonic::transport::Server;
 
-mod user_proto {
-    tonic::include_proto!("user");
+mod message_proto {
+    tonic::include_proto!("message");
 }
 
 mod post_proto {
     tonic::include_proto!("post");
 }
 
-mod message_proto {
-    tonic::include_proto!("message");
+mod reaction_proto {
+    tonic::include_proto!("reaction");
+}
+
+mod user_proto {
+    tonic::include_proto!("user");
 }
 
 #[tokio::main]
@@ -51,6 +56,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let message_usecase = MessageUseCaseImpl::new(message_repository);
     let message_handler = MessageHandler::new(message_usecase);
 
+    let reaction_repository = PgReactionRepository::new(pool.clone());
+    let reaction_usecase = ReactionUseCaseImpl::new(reaction_repository);
+    let reaction_handler = ReactionHandler::new(reaction_usecase);
+
     let addr = "[::1]:50051".parse()?;
     println!("Server listening on {}", addr);
 
@@ -64,6 +73,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))
         .add_service(
             message_proto::message_service_server::MessageServiceServer::new(message_handler),
+        )
+        .add_service(
+            reaction_proto::reaction_service_server::ReactionServiceServer::new(reaction_handler),
         )
         .serve(addr)
         .await?;

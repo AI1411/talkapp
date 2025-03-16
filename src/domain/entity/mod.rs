@@ -4,4 +4,6 @@ pub mod prelude;
 
 pub mod messages;
 pub mod post;
+pub mod reaction_types;
+pub mod reactions;
 pub mod users;

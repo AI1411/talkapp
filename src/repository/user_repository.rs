@@ -42,7 +42,6 @@ impl UserRepository for PgUserRepository {
         gender: Option<String>,
         address: Option<String>,
     ) -> Result<User, sqlx::Error> {
-        let now = chrono::Utc::now().naive_utc();
         let user = users::ActiveModel {
             id: NotSet,
             name: Set(name),
