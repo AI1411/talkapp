@@ -1,0 +1,185 @@
+syntax = "proto3";
+
+package group;
+
+import "google/protobuf/wrappers.proto";
+
+service GroupService {
+  // グループ作成
+  rpc CreateGroup (CreateGroupRequest) returns (CreateGroupResponse);
+  // グループ情報取得
+  rpc GetGroup (GetGroupRequest) returns (GetGroupResponse);
+  // グループ一覧取得
+  rpc ListGroups (ListGroupsRequest) returns (ListGroupsResponse);
+  // グループ更新
+  rpc UpdateGroup (UpdateGroupRequest) returns (UpdateGroupResponse);
+  // グループ削除
+  rpc DeleteGroup (DeleteGroupRequest) returns (DeleteGroupResponse);
+  // グループメンバー追加
+  rpc AddGroupMember (AddGroupMemberRequest) returns (AddGroupMemberResponse);
+  // グループメンバー削除
+  rpc RemoveGroupMember (RemoveGroupMemberRequest) returns (RemoveGroupMemberResponse);
+  // グループメンバー一覧取得
+  rpc ListGroupMembers (ListGroupMembersRequest) returns (ListGroupMembersResponse);
+  // グループメッセージ送信
+  rpc SendGroupMessage (SendGroupMessageRequest) returns (SendGroupMessageResponse);
+  // グループメッセージ一覧取得
+  rpc ListGroupMessages (ListGroupMessagesRequest) returns (ListGroupMessagesResponse);
+  // グループメッセージ既読
+  rpc MarkGroupMessageAsRead (MarkGroupMessageAsReadRequest) returns (MarkGroupMessageAsReadResponse);
+  // グループメッセージ削除
+  rpc DeleteGroupMessage (DeleteGroupMessageRequest) returns (DeleteGroupMessageResponse);
+}
+
+message CreateGroupRequest {
+  string name = 1;
+  string description = 2;
+  uint64 creator_id = 3;
+  repeated uint64 initial_member_ids = 4;
+}
+
+message Group {
+  uint64 id = 1;
+  string name = 2;
+  string description = 3;
+  uint64 creator_id = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message CreateGroupResponse {
+  Group group = 1;
+}
+
+message GetGroupRequest {
+  uint64 group_id = 1;
+}
+
+message GetGroupResponse {
+  Group group = 1;
+}
+
+message ListGroupsRequest {
+  uint64 user_id = 1;  // ユーザーID（このユーザーが所属するグループを取得）
+  int32 page = 2;
+  int32 per_page = 3;
+}
+
+message ListGroupsResponse {
+  repeated Group groups = 1;
+  int32 total_count = 2;
+}
+
+message UpdateGroupRequest {
+  uint64 group_id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue description = 3;
+}
+
+message UpdateGroupResponse {
+  Group group = 1;
+}
+
+message DeleteGroupRequest {
+  uint64 group_id = 1;
+}
+
+message DeleteGroupResponse {
+  bool success = 1;
+}
+
+message GroupMember {
+  uint64 id = 1;
+  uint64 group_id = 2;
+  uint64 user_id = 3;
+  string role = 4;
+  string created_at = 5;
+  string updated_at = 6;
+  // ユーザー情報
+  string user_name = 7;
+  string user_email = 8;
+}
+
+message AddGroupMemberRequest {
+  uint64 group_id = 1;
+  uint64 user_id = 2;
+  string role = 3;
+}
+
+message AddGroupMemberResponse {
+  GroupMember member = 1;
+}
+
+message RemoveGroupMemberRequest {
+  uint64 group_id = 1;
+  uint64 user_id = 2;
+}
+
+message RemoveGroupMemberResponse {
+  bool success = 1;
+}
+
+message ListGroupMembersRequest {
+  uint64 group_id = 1;
+  int32 page = 2;
+  int32 per_page = 3;
+}
+
+message ListGroupMembersResponse {
+  repeated GroupMember members = 1;
+  int32 total_count = 2;
+}
+
+message GroupMessage {
+  uint64 id = 1;
+  uint64 group_id = 2;
+  uint64 sender_id = 3;
+  string content = 4;
+  string created_at = 5;
+  string updated_at = 6;
+  // 送信者情報
+  string sender_name = 7;
+  // 既読情報
+  repeated uint64 read_by_user_ids = 8;
+}
+
+message SendGroupMessageRequest {
+  uint64 group_id = 1;
+  uint64 sender_id = 2;
+  string content = 3;
+}
+
+message SendGroupMessageResponse {
+  GroupMessage message = 1;
+}
+
+message ListGroupMessagesRequest {
+  uint64 group_id = 1;
+  uint64 user_id = 2;  // リクエストを送信するユーザーID
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message ListGroupMessagesResponse {
+  repeated GroupMessage messages = 1;
+  int32 total_count = 2;
+  int32 unread_count = 3;
+}
+
+message MarkGroupMessageAsReadRequest {
+  uint64 group_id = 1;
+  uint64 message_id = 2;
+  uint64 user_id = 3;
+}
+
+message MarkGroupMessageAsReadResponse {
+  bool success = 1;
+}
+
+message DeleteGroupMessageRequest {
+  uint64 message_id = 1;
+}
+
+message DeleteGroupMessageResponse {
+  bool success = 1;
+}
