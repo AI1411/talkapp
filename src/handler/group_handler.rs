@@ -320,3 +320,322 @@ impl<U: GroupUseCase + Send + Sync + 'static> GroupService for GroupHandler<U> {
         Ok(Response::new(DeleteGroupMessageResponse { success }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::entity::{group_members, group_messages, groups, users};
+    use crate::usecase::group_usecase::GroupUseCase;
+    use async_trait::async_trait;
+    use mockall::predicate::*;
+    use mockall::*;
+    // GroupUseCaseのモック
+    mock! {
+        pub GroupUseCase {}
+
+        #[async_trait]
+        impl GroupUseCase for GroupUseCase {
+            async fn create_group(
+                &self,
+                name: String,
+                description: Option<String>,
+                creator_id: i32,
+                initial_member_ids: Vec<i32>,
+            ) -> Result<groups::Model, sea_orm::DbErr>;
+
+            async fn get_group(
+                &self,
+                group_id: i32,
+            ) -> Result<Option<groups::Model>, sea_orm::DbErr>;
+
+            async fn list_groups(
+                &self,
+                user_id: i32,
+                page: i32,
+                per_page: i32,
+            ) -> Result<(Vec<groups::Model>, i32), sea_orm::DbErr>;
+
+            async fn update_group(
+                &self,
+                group_id: i32,
+                name: Option<String>,
+                description: Option<String>,
+            ) -> Result<groups::Model, sea_orm::DbErr>;
+
+            async fn delete_group(
+                &self,
+                group_id: i32,
+            ) -> Result<bool, sea_orm::DbErr>;
+
+            async fn add_group_member(
+                &self,
+                group_id: i32,
+                user_id: i32,
+                role: String,
+            ) -> Result<group_members::Model, sea_orm::DbErr>;
+
+            async fn remove_group_member(
+                &self,
+                group_id: i32,
+                user_id: i32,
+            ) -> Result<bool, sea_orm::DbErr>;
+
+            async fn list_group_members(
+                &self,
+                group_id: i32,
+                page: i32,
+                per_page: i32,
+            ) -> Result<(Vec<(group_members::Model, Option<users::Model>)>, i32), sea_orm::DbErr>;
+
+            async fn send_group_message(
+                &self,
+                group_id: i32,
+                sender_id: i32,
+                content: String,
+            ) -> Result<group_messages::Model, sea_orm::DbErr>;
+
+            async fn list_group_messages(
+                &self,
+                group_id: i32,
+                user_id: i32,
+                page: i32,
+                per_page: i32,
+            ) -> Result<(Vec<(group_messages::Model, Vec<i32>)>, i32, i32), sea_orm::DbErr>;
+
+            async fn mark_group_message_as_read(
+                &self,
+                group_id: i32,
+                message_id: i32,
+                user_id: i32,
+            ) -> Result<bool, sea_orm::DbErr>;
+
+            async fn delete_group_message(
+                &self,
+                message_id: i32,
+            ) -> Result<bool, sea_orm::DbErr>;
+        }
+    }
+
+    fn create_test_group() -> groups::Model {
+        let dt = chrono::NaiveDate::from_ymd_opt(2023, 1, 1)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap();
+
+        groups::Model {
+            id: 1,
+            name: "テストグループ".to_string(),
+            description: Some("テスト説明".to_string()),
+            creator_id: 1,
+            created_at: dt,
+            updated_at: dt,
+            deleted_at: None,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn create_test_group_member() -> group_members::Model {
+        let dt = chrono::NaiveDate::from_ymd_opt(2023, 1, 1)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap();
+
+        group_members::Model {
+            id: 1,
+            group_id: 1,
+            user_id: 1,
+            role: "admin".to_string(),
+            created_at: dt,
+            updated_at: dt,
+            deleted_at: None,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn create_test_user() -> users::Model {
+        let dt = chrono::NaiveDate::from_ymd_opt(2023, 1, 1)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap();
+
+        users::Model {
+            id: 1,
+            name: "テストユーザー".to_string(),
+            email: "test@example.com".to_string(),
+            description: Some("テスト説明".to_string()),
+            age: Some(30),
+            gender: Some("男性".to_string()),
+            address: Some("東京都".to_string()),
+            created_at: dt,
+            updated_at: dt,
+            deleted_at: None,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn create_test_group_message() -> group_messages::Model {
+        let dt = chrono::NaiveDate::from_ymd_opt(2023, 1, 1)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap();
+
+        group_messages::Model {
+            id: 1,
+            group_id: 1,
+            sender_id: 1,
+            content: "テストメッセージ".to_string(),
+            created_at: dt,
+            updated_at: dt,
+            deleted_at: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_group() {
+        let mut mock_usecase = MockGroupUseCase::new();
+        let test_group = create_test_group();
+
+        mock_usecase
+            .expect_create_group()
+            .with(
+                eq("テストグループ".to_string()),
+                eq(Some("テスト説明".to_string())),
+                eq(1),
+                eq(vec![1, 2, 3]),
+            )
+            .returning(|_, _, _, _| Ok(create_test_group()));
+
+        let handler = GroupHandler::new(mock_usecase);
+        let request = Request::new(CreateGroupRequest {
+            name: "テストグループ".to_string(),
+            description: "テスト説明".to_string(),
+            creator_id: 1,
+            initial_member_ids: vec![1, 2, 3],
+        });
+
+        let response = handler.create_group(request).await.unwrap();
+        let group = response.into_inner().group.unwrap();
+
+        assert_eq!(group.id, test_group.id as u64);
+        assert_eq!(group.name, test_group.name);
+        assert_eq!(group.description, test_group.description.unwrap());
+        assert_eq!(group.creator_id, test_group.creator_id as u64);
+    }
+
+    #[tokio::test]
+    async fn test_get_group() {
+        let mut mock_usecase = MockGroupUseCase::new();
+        let test_group = create_test_group();
+
+        mock_usecase
+            .expect_get_group()
+            .with(eq(1))
+            .returning(|_| Ok(Some(create_test_group())));
+
+        let handler = GroupHandler::new(mock_usecase);
+        let request = Request::new(GetGroupRequest { group_id: 1 });
+
+        let response = handler.get_group(request).await.unwrap();
+        let group = response.into_inner().group.unwrap();
+
+        assert_eq!(group.id, test_group.id as u64);
+        assert_eq!(group.name, test_group.name);
+        assert_eq!(group.description, test_group.description.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_get_group_not_found() {
+        let mut mock_usecase = MockGroupUseCase::new();
+
+        mock_usecase
+            .expect_get_group()
+            .with(eq(999))
+            .returning(|_| Ok(None));
+
+        let handler = GroupHandler::new(mock_usecase);
+        let request = Request::new(GetGroupRequest { group_id: 999 });
+
+        let result = handler.get_group(request).await;
+        assert!(result.is_err());
+
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::NotFound);
+    }
+
+    #[tokio::test]
+    async fn test_list_groups() {
+        let mut mock_usecase = MockGroupUseCase::new();
+        let test_groups = vec![create_test_group(), create_test_group()];
+
+        mock_usecase
+            .expect_list_groups()
+            .with(eq(1), eq(1), eq(10))
+            .returning(|_, _, _| Ok((vec![create_test_group(), create_test_group()], 2)));
+
+        let handler = GroupHandler::new(mock_usecase);
+        let request = Request::new(ListGroupsRequest {
+            user_id: 1,
+            page: 1,
+            per_page: 10,
+        });
+
+        let response = handler.list_groups(request).await.unwrap();
+        let groups = response.into_inner().groups;
+        
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].id, test_groups[0].id as u64);
+        assert_eq!(groups[0].name, test_groups[0].name);
+    }
+
+    #[tokio::test]
+    async fn test_update_group() {
+        let mut mock_usecase = MockGroupUseCase::new();
+        let mut test_group = create_test_group();
+        test_group.name = "更新グループ".to_string();
+        test_group.description = Some("更新説明".to_string());
+
+        mock_usecase
+            .expect_update_group()
+            .with(
+                eq(1),
+                eq(Some("更新グループ".to_string())),
+                eq(Some("更新説明".to_string())),
+            )
+            .returning(|_, _, _| {
+                let mut group = create_test_group();
+                group.name = "更新グループ".to_string();
+                group.description = Some("更新説明".to_string());
+                Ok(group)
+            });
+
+        let handler = GroupHandler::new(mock_usecase);
+        let request = Request::new(UpdateGroupRequest {
+            group_id: 1,
+            name: Some("更新グループ".to_string()),
+            description: Some("更新説明".to_string()),
+        });
+
+        let response = handler.update_group(request).await.unwrap();
+        let group = response.into_inner().group.unwrap();
+
+        assert_eq!(group.id, test_group.id as u64);
+        assert_eq!(group.name, "更新グループ");
+        assert_eq!(group.description, "更新説明");
+    }
+
+    #[tokio::test]
+    async fn test_delete_group() {
+        let mut mock_usecase = MockGroupUseCase::new();
+
+        mock_usecase
+            .expect_delete_group()
+            .with(eq(1))
+            .returning(|_| Ok(true));
+
+        let handler = GroupHandler::new(mock_usecase);
+        let request = Request::new(DeleteGroupRequest { group_id: 1 });
+
+        let response = handler.delete_group(request).await.unwrap();
+        assert_eq!(response.into_inner().success, true);
+    }
+}
