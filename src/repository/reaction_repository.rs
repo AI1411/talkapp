@@ -153,6 +153,7 @@ mod tests {
     }
 
     /// テスト用のデータをクリーンアップします
+    #[allow(dead_code)]
     async fn cleanup_test_data(db: &DatabaseConnection) -> Result<(), DbErr> {
         // テストで作成したリアクションを物理的に削除
         let stmt1 = Statement::from_sql_and_values(
@@ -174,6 +175,7 @@ mod tests {
     }
 
     /// テスト用のダミーユーザーをセットアップします
+    #[allow(dead_code)]
     async fn setup_dummy_users(db: &DatabaseConnection) -> Result<(), DbErr> {
         // ユーザーID 1 の挿入
         let stmt1 = Statement::from_sql_and_values(
@@ -224,6 +226,7 @@ mod tests {
     }
 
     /// テスト用のダミーメッセージをセットアップします
+    #[allow(dead_code)]
     async fn setup_dummy_message(db: &DatabaseConnection) -> Result<i32, DbErr> {
         // メッセージの挿入 - NOW()をそのまま使用（タイムゾーン付きのまま）
         let stmt = Statement::from_sql_and_values(

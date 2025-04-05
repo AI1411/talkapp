@@ -5,7 +5,6 @@ use crate::user_proto::{
     GetUserResponse, ListUsersRequest, ListUsersResponse, UpdateUserRequest, UpdateUserResponse,
     User,
 };
-use sqlx::Error as SqlxError;
 use tonic::{Request, Response, Status};
 
 pub struct UserHandler<U> {
