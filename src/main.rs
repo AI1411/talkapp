@@ -2,20 +2,27 @@ mod domain;
 mod handler;mod repository;
 mod usecase;
 
+use crate::handler::group_handler::GroupHandler;
 use crate::handler::message_handler::MessageHandler;
 use crate::handler::post_handler::PostHandler;
 use crate::handler::reaction_handler::ReactionHandler;
 use crate::handler::user_handler::UserHandler;
+use crate::repository::group_repository::PgGroupRepository;
 use crate::repository::message_repository::PgMessageRepository;
 use crate::repository::post_repository::PgPostRepository;
 use crate::repository::reaction_repository::PgReactionRepository;
 use crate::repository::user_repository::PgUserRepository;
+use crate::usecase::group_usecase::GroupUseCaseImpl;
 use crate::usecase::message_usecase::MessageUseCaseImpl;
 use crate::usecase::post_usecase::PostUseCaseImpl;
 use crate::usecase::reaction_usecase::ReactionUseCaseImpl;
 use crate::usecase::user_usecase::UserUseCaseImpl;
 use dotenv::dotenv;
 use tonic::transport::Server;
+
+mod group_proto {
+    tonic::include_proto!("group");
+}
 
 mod message_proto {
     tonic::include_proto!("message");
@@ -60,6 +67,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reaction_usecase = ReactionUseCaseImpl::new(reaction_repository);
     let reaction_handler = ReactionHandler::new(reaction_usecase);
 
+    let group_repository = PgGroupRepository::new(pool.clone());
+    let group_usecase = GroupUseCaseImpl::new(group_repository);
+    let group_handler = GroupHandler::new(group_usecase);
+
     let addr = "[::1]:50051".parse()?;
     println!("Server listening on {}", addr);
 
@@ -76,6 +87,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .add_service(
             reaction_proto::reaction_service_server::ReactionServiceServer::new(reaction_handler),
+        )
+        .add_service(
+            group_proto::group_service_server::GroupServiceServer::new(group_handler),
         )
         .serve(addr)
         .await?;

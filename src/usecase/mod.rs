@@ -1,3 +1,4 @@
+pub mod group_usecase;
 pub mod message_usecase;
 pub mod post_usecase;
 pub mod reaction_usecase;

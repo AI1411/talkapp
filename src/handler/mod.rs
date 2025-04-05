@@ -1,3 +1,4 @@
+pub mod group_handler;
 pub mod message_handler;
 pub mod post_handler;
 pub mod reaction_handler;

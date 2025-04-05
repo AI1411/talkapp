@@ -2,6 +2,10 @@
 
 pub mod prelude;
 
+pub mod groups;
+pub mod group_members;
+pub mod group_messages;
+pub mod group_message_reads;
 pub mod messages;
 pub mod post;
 pub mod reaction_types;
